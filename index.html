@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+<meta charset="UTF-8">
+<title>Labirintas</title>
+
+<style>
+    body {
+        background: #111;
+        color: white;
+        text-align: center;
+        font-family: Arial;
+    }
+
+    #game {
+        position: relative;
+        width: 400px;
+        height: 400px;
+        margin: 20px auto;
+        background: #222;
+    }
+
+    .wall {
+        position: absolute;
+        background: red;
+    }
+
+    #player {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        background: lime;
+        top: 10px;
+        left: 10px;
+    }
+
+    #finish {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        background: gold;
+        bottom: 10px;
+        right: 10px;
+    }
+</style>
+</head>
+
+<body>
+
+<h1>Labirinto žaidimas</h1>
+
+<div id="game">
+    <div id="player"></div>
+    <div id="finish"></div>
+
+    <!-- sienos -->
+    <div class="wall" style="top:50px; left:0; width:300px; height:10px;"></div>
+    <div class="wall" style="top:150px; left:100px; width:300px; height:10px;"></div>
+</div>
+
+<script>
+let player = document.getElementById("player");
+let finish = document.getElementById("finish");
+
+let x = 10;
+let y = 10;
+let speed = 10;
+
+document.addEventListener("keydown", function(e) {
+
+    let newX = x;
+    let newY = y;
+
+    if (e.key === "ArrowUp") newY -= speed;
+    if (e.key === "ArrowDown") newY += speed;
+    if (e.key === "ArrowLeft") newX -= speed;
+    if (e.key === "ArrowRight") newX += speed;
+
+    if (!checkCollision(newX, newY)) {
+        x = newX;
+        y = newY;
+        player.style.left = x + "px";
+        player.style.top = y + "px";
+    }
+
+    if (checkFinish()) {
+        alert("🎉 Laimėjai!");
+    }
+});
+
+function checkCollision(nx, ny) {
+    let walls = document.querySelectorAll(".wall");
+
+    for (let wall of walls) {
+        let rect = wall.getBoundingClientRect();
+        let playerRect = {
+            left: nx,
+            top: ny,
+            right: nx + 20,
+            bottom: ny + 20
+        };
+
+        let wallRect = {
+            left: wall.offsetLeft,
+            top: wall.offsetTop,
+            right: wall.offsetLeft + wall.offsetWidth,
+            bottom: wall.offsetTop + wall.offsetHeight
+        };
+
+        if (!(playerRect.right < wallRect.left ||
+              playerRect.left > wallRect.right ||
+              playerRect.bottom < wallRect.top ||
+              playerRect.top > wallRect.bottom)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function checkFinish() {
+    let p = player.getBoundingClientRect();
+    let f = finish.getBoundingClientRect();
+
+    return !(p.right < f.left ||
+             p.left > f.right ||
+             p.bottom < f.top ||
+             p.top > f.bottom);
+}
+</script>
+
+</body>
+</html>
