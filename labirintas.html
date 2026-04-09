@@ -12,14 +12,6 @@
         font-family: Arial;
     }
 
-    /* #game {
-        position: relative;
-        width: 400px;
-        height: 400px;
-        margin: 20px auto;
-        background: #222;
-    } */
-
     #game {
         width: 400px;
         height: 400px;
@@ -59,6 +51,9 @@
         filter: drop-shadow(0 0 5px lime);
         top: 10px;
         left: 10px;
+        transition: transform 0.02s;
+        /* transform-style: preserve-3d; */
+        transform-origin: center;
     }
     #finish {
         position: absolute;
@@ -73,6 +68,8 @@
         width: 20px;
         height: 20px;
         filter: drop-shadow(0 0 5px orange);
+        top: 10px;
+        right: 10px;
     }
 
     #timer {
@@ -112,12 +109,13 @@ let timerEl  = document.getElementById("timer");
 
 player.innerHTML = "🕺";   // arba 😎
 finish.innerHTML = "❤️";   // mergaitė
-//enemy.innerHTML  = "💀";   // priešas
-enemy.innerHTML  = "";   // priešas
+enemy.innerHTML  = "💀";   // priešas
+//enemy.innerHTML  = "";   // priešas
 
 const CELL_SIZE  = 40;
 const TIME_LIMIT = 30;
 const AREA_LIMIT = 8;
+const TIME_KOEF  = 1.8;
 //const SPEED_FROM = 10;
     
 let COLS         = 0;
@@ -194,13 +192,6 @@ function loadLevel(lvl) {
 
     COLS = AREA_LIMIT + level * 2;
     ROWS = AREA_LIMIT + level * 2;
-
-    //speed = SPEED_FROM + level * 3; 
-
-    // game.style.width  = (COLS * CELL_SIZE) + "px";
-    // game.style.height = (ROWS * CELL_SIZE) + "px";
-
-    console.log("Loading level ", lvl, "speed", speed);
 
     generateMazeDFS();
 
@@ -306,8 +297,9 @@ function rand(min, max) {
 
 function resetGame() {
 
-    timeLeft = TIME_LIMIT + level * 5;
-    timerEl.innerText = "Laikas: " + timeLeft;
+    //timeLeft = Math.floor(Math.sqrt(COLS * ROWS) * 3);
+    timeLeft = Math.round(TIME_LIMIT + level*level * TIME_KOEF);
+    timerEl.innerText = "Laikas: " + timeLeft + " (lygis " + level + ")";
 
     x_start = 0;
     y_start = 0;
@@ -335,7 +327,7 @@ function startTimer() {
         if (gameOver) return;
 
         timeLeft--;
-        timerEl.innerText = "Laikas: " + timeLeft;
+        timerEl.innerText = "Laikas: " + timeLeft + " (lygis " + level + ")";
 
         if (timeLeft <= 0 && !gameOver) {
             clearInterval(timerInterval);
@@ -356,47 +348,6 @@ function isMovementKey(key) {
            key === "ArrowRight";
 }
 
-// document.addEventListener("keydown", function(e) {
-
-//     setInterval(() => {
-
-//         if (gameOver) return;
-
-//         if (keys["ArrowUp"] && canMove("ArrowUp")) {
-//             targetY -= CELL_SIZE;
-//         }
-//         if (keys["ArrowDown"] && canMove("ArrowDown")) {
-//             targetY += CELL_SIZE;
-//         }
-//         if (keys["ArrowLeft"] && canMove("ArrowLeft")) {
-//             targetX -= CELL_SIZE;
-//         }
-//         if (keys["ArrowRight"] && canMove("ArrowRight")) {
-//             targetX += CELL_SIZE;
-//         }
-
-//         renderX += (targetX - renderX) / speedAnim;
-//         renderY += (targetY - renderY) / speedAnim;
-
-//         player.style.left = (renderX + (CELL_SIZE - 20)/2) + "px";
-//         player.style.top  = (renderY + (CELL_SIZE - 20)/2) + "px";
-
-//         if (checkFinish() && !gameOver) {
-//             gameOver = true;
-//             clearInterval(timerInterval);
-//             setStatus("🎉 Laimėjai! Level " + level, "lime");
-
-//             setTimeout(() => {
-//                 level++;
-//                 loadLevel(level);
-//                 resetGame();
-//             }, 2000);
-//         }
-
-//     }, 100); // 100ms = greitis
-// });
-
-
 
 setInterval(() => {
 
@@ -406,18 +357,23 @@ setInterval(() => {
     if (keys["ArrowUp"] && canMove("ArrowUp")) {
         targetY -= CELL_SIZE;
         y_start -= CELL_SIZE;
+//        player.style.transform = "rotateZ(-90deg)";
     }
     if (keys["ArrowDown"] && canMove("ArrowDown")) {
         targetY += CELL_SIZE;
         y_start += CELL_SIZE;
+//        player.style.transform = "rotateZ(90deg)";
     }
     if (keys["ArrowLeft"] && canMove("ArrowLeft")) {
         targetX -= CELL_SIZE;
         x_start -= CELL_SIZE;
+//        player.style.transform = "rotateY(180deg)";
+        player.style.transform = "scaleX(-1)";
     }
     if (keys["ArrowRight"] && canMove("ArrowRight")) {
         targetX += CELL_SIZE;
         x_start += CELL_SIZE;
+        player.style.transform = "scaleX(1)";
     }
 
     // --- animacija ---
