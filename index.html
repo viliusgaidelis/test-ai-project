@@ -40,23 +40,41 @@
         background: red;
     }
 
+    #player, #finish, #enemy {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        font-size: 24px;
+    }
+
     #player {
         position: absolute;
         width: 20px;
         height: 20px;
-        background: lime;
+        filter: drop-shadow(0 0 5px lime);
         top: 10px;
         left: 10px;
     }
-
     #finish {
         position: absolute;
         width: 20px;
         height: 20px;
-        background: gold;
+        filter: drop-shadow(0 0 5px gold);
         bottom: 10px;
         right: 10px;
     }
+    #enemy {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        filter: drop-shadow(0 0 5px orange);
+    }
+
     #timer {
         font-size: 20px;
         margin-top: 10px;
@@ -77,6 +95,7 @@
 <div id="game">
     <div id="maze">
         <div id="player"></div>
+        <div id="enemy"></div>
         <div id="finish"></div>
     </div>
 </div>
@@ -86,9 +105,15 @@
 let game     = document.getElementById("game");
 let maze     = document.getElementById("maze");
 let player   = document.getElementById("player");
+let enemy    = document.getElementById("enemy");
 let finish   = document.getElementById("finish");
 let statusEl = document.getElementById("status");
 let timerEl  = document.getElementById("timer");
+
+player.innerHTML = "🕺";   // arba 😎
+finish.innerHTML = "❤️";   // mergaitė
+//enemy.innerHTML  = "💀";   // priešas
+enemy.innerHTML  = "";   // priešas
 
 const CELL_SIZE  = 40;
 const TIME_LIMIT = 30;
