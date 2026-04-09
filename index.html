@@ -12,12 +12,27 @@
         font-family: Arial;
     }
 
-    #game {
+    /* #game {
         position: relative;
         width: 400px;
         height: 400px;
         margin: 20px auto;
         background: #222;
+    } */
+
+    #game {
+        width: 400px;
+        height: 400px;
+        overflow: hidden;
+        margin: 20px auto;
+        background: #222;
+        position: relative;
+    }
+
+    #maze {
+        position: absolute;
+        transform-origin: top left;
+        transition: transform 0.3s;
     }
 
     .wall {
@@ -42,91 +57,407 @@
         bottom: 10px;
         right: 10px;
     }
+    #timer {
+        font-size: 20px;
+        margin-top: 10px;
+    }
+    #status {
+        margin-top: 10px;
+        font-size: 18px;
+        height: 24px;
+    }
 </style>
 </head>
 
 <body>
 
 <h1>Labirinto žaidimas</h1>
-
+<div id="timer">Laikas: 10</div>
+<div id="status"></div>
 <div id="game">
-    <div id="player"></div>
-    <div id="finish"></div>
-
-    <!-- sienos -->
-    <div class="wall" style="top:50px; left:0; width:300px; height:10px;"></div>
-    <div class="wall" style="top:150px; left:100px; width:300px; height:10px;"></div>
+    <div id="maze">
+        <div id="player"></div>
+        <div id="finish"></div>
+    </div>
 </div>
 
 <script>
-let player = document.getElementById("player");
-let finish = document.getElementById("finish");
 
-let x = 10;
-let y = 10;
-let speed = 10;
+let game     = document.getElementById("game");
+let maze     = document.getElementById("maze");
+let player   = document.getElementById("player");
+let finish   = document.getElementById("finish");
+let statusEl = document.getElementById("status");
+let timerEl  = document.getElementById("timer");
 
-document.addEventListener("keydown", function(e) {
+const CELL_SIZE  = 40;
+const TIME_LIMIT = 30;
+const AREA_LIMIT = 8;
+//const SPEED_FROM = 10;
+    
+let COLS         = 0;
+let ROWS         = 0;
 
-    let newX = x;
-    let newY = y;
+let keys = {};
 
-    if (e.key === "ArrowUp") newY -= speed;
-    if (e.key === "ArrowDown") newY += speed;
-    if (e.key === "ArrowLeft") newX -= speed;
-    if (e.key === "ArrowRight") newX += speed;
+let x_start = 0;
+let y_start = 0;
 
-    if (!checkCollision(newX, newY)) {
-        x = newX;
-        y = newY;
-        player.style.left = x + "px";
-        player.style.top = y + "px";
-    }
+let targetX = 0;
+let targetY = 0;
 
-    if (checkFinish()) {
-        alert("🎉 Laimėjai!");
+let renderX = 0;
+let renderY = 0;
+
+let level = 1;
+let speed = CELL_SIZE;
+
+let gameOver = false;
+let timerInterval;
+let timerStarted = false;
+
+let speedAnim = 2; // kuo mažiau → tuo smooth
+
+
+
+let mazeGrid = [];
+
+resetGame()
+loadLevel(level);  
+
+
+
+document.addEventListener("keydown", e => {
+    if (isMovementKey(e.key)) {
+        keys[e.key] = true;
+
+        if (!timerStarted) {
+            timerStarted = true;
+            startTimer();
+        }
     }
 });
 
-function checkCollision(nx, ny) {
-    let walls = document.querySelectorAll(".wall");
+document.addEventListener("keyup", e => {
+    keys[e.key] = false;
+});
 
-    for (let wall of walls) {
-        let rect = wall.getBoundingClientRect();
-        let playerRect = {
-            left: nx,
-            top: ny,
-            right: nx + 20,
-            bottom: ny + 20
-        };
 
-        let wallRect = {
-            left: wall.offsetLeft,
-            top: wall.offsetTop,
-            right: wall.offsetLeft + wall.offsetWidth,
-            bottom: wall.offsetTop + wall.offsetHeight
-        };
 
-        if (!(playerRect.right < wallRect.left ||
-              playerRect.left > wallRect.right ||
-              playerRect.bottom < wallRect.top ||
-              playerRect.top > wallRect.bottom)) {
-            return true;
+function setStatus(text, color="white") {
+    statusEl.innerText = text;
+    statusEl.style.color = color;
+}
+
+function createWall(top, left, width, height) {
+
+    // let gameWidth  = COLS * CELL_SIZE;
+    // let gameHeight = ROWS * CELL_SIZE;
+
+    let wall = document.createElement("div");
+    wall.className = "wall";
+
+    wall.style.top = top + "px";
+    wall.style.left = left + "px";
+    wall.style.width = width + "px";
+    wall.style.height = height + "px";
+
+    maze.appendChild(wall);
+}
+
+function loadLevel(lvl) {
+
+    COLS = AREA_LIMIT + level * 2;
+    ROWS = AREA_LIMIT + level * 2;
+
+    //speed = SPEED_FROM + level * 3; 
+
+    // game.style.width  = (COLS * CELL_SIZE) + "px";
+    // game.style.height = (ROWS * CELL_SIZE) + "px";
+
+    console.log("Loading level ", lvl, "speed", speed);
+
+    generateMazeDFS();
+
+    let maze = document.getElementById("maze");
+
+    let realWidth = COLS * CELL_SIZE;
+    let realHeight = ROWS * CELL_SIZE;
+
+    maze.style.width = realWidth + "px";
+    maze.style.height = realHeight + "px";
+
+    // apskaičiuojam scale
+    let scaleX = 400 / realWidth;
+    let scaleY = 400 / realHeight;
+
+    let scale = Math.min(scaleX, scaleY);
+
+    maze.style.transform = "scale(" + scale + ")";
+
+}
+
+function generateMazeDFS() {
+
+    let grid = [];
+
+    // sukurti grid su visom sienom
+    for (let y = 0; y < ROWS; y++) {
+        grid[y] = [];
+        for (let x = 0; x < COLS; x++) {
+            grid[y][x] = {
+                visited: false,
+                walls: { top: true, right: true, bottom: true, left: true }
+            };
         }
+    }
+
+    function dfs(x, y) {
+        grid[y][x].visited = true;
+
+        let dirs = shuffle([
+            [0, -1, "top", "bottom"],
+            [1, 0, "right", "left"],
+            [0, 1, "bottom", "top"],
+            [-1, 0, "left", "right"]
+        ]);
+
+        for (let [dx, dy, wall, opposite] of dirs) {
+            let nx = x + dx;
+            let ny = y + dy;
+
+            if (nx >= 0 && ny >= 0 && nx < COLS && ny < ROWS && !grid[ny][nx].visited) {
+                grid[y][x].walls[wall] = false;
+                grid[ny][nx].walls[opposite] = false;
+                dfs(nx, ny);
+            }
+        }
+    }
+
+    dfs(0, 0);
+    
+    mazeGrid = grid;
+    drawMaze(grid);
+}
+
+function drawMaze(grid) {
+
+    document.querySelectorAll(".wall").forEach(w => w.remove());
+
+    for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+
+            let cell = grid[y][x];
+
+            let px = x * CELL_SIZE;
+            let py = y * CELL_SIZE;
+
+            if (cell.walls.top) {
+                createWall(py, px, CELL_SIZE, 4);
+            }
+
+            if (cell.walls.left) {
+                createWall(py, px, 4, CELL_SIZE);
+            }
+
+            if (cell.walls.right) {
+                createWall(py, px + CELL_SIZE - 4, 4, CELL_SIZE);
+            }
+
+            if (cell.walls.bottom) {
+                createWall(py + CELL_SIZE - 4, px, CELL_SIZE, 4);
+            }
+        }
+    }
+}
+
+function shuffle(arr) {
+    return arr.sort(() => Math.random() - 0.5);
+}
+
+function rand(min, max) {
+    return Math.floor(Math.random() * (max - min)) + min;
+}
+
+function resetGame() {
+
+    timeLeft = TIME_LIMIT + level * 5;
+    timerEl.innerText = "Laikas: " + timeLeft;
+
+    x_start = 0;
+    y_start = 0;
+
+    targetX = x_start;
+    targetY = y_start;
+
+    renderX = x_start;
+    renderY = y_start;
+
+    player.style.left = (x_start + (CELL_SIZE - 20)/2) + "px";
+    player.style.top  = (y_start + (CELL_SIZE - 20)/2) + "px";
+
+    gameOver     = false;
+    timerStarted = false;
+
+    setStatus("");
+
+    clearInterval(timerInterval);
+}
+
+function startTimer() {
+    timerInterval = setInterval(() => {
+
+        if (gameOver) return;
+
+        timeLeft--;
+        timerEl.innerText = "Laikas: " + timeLeft;
+
+        if (timeLeft <= 0 && !gameOver) {
+            clearInterval(timerInterval);
+            gameOver = true;
+            setStatus("💀 Pralaimėjai!", "red");
+            setTimeout(() => {
+                resetGame();
+            }, 2000);
+        }
+
+    }, 1000);
+}
+
+function isMovementKey(key) {
+    return key === "ArrowUp" ||
+           key === "ArrowDown" ||
+           key === "ArrowLeft" ||
+           key === "ArrowRight";
+}
+
+// document.addEventListener("keydown", function(e) {
+
+//     setInterval(() => {
+
+//         if (gameOver) return;
+
+//         if (keys["ArrowUp"] && canMove("ArrowUp")) {
+//             targetY -= CELL_SIZE;
+//         }
+//         if (keys["ArrowDown"] && canMove("ArrowDown")) {
+//             targetY += CELL_SIZE;
+//         }
+//         if (keys["ArrowLeft"] && canMove("ArrowLeft")) {
+//             targetX -= CELL_SIZE;
+//         }
+//         if (keys["ArrowRight"] && canMove("ArrowRight")) {
+//             targetX += CELL_SIZE;
+//         }
+
+//         renderX += (targetX - renderX) / speedAnim;
+//         renderY += (targetY - renderY) / speedAnim;
+
+//         player.style.left = (renderX + (CELL_SIZE - 20)/2) + "px";
+//         player.style.top  = (renderY + (CELL_SIZE - 20)/2) + "px";
+
+//         if (checkFinish() && !gameOver) {
+//             gameOver = true;
+//             clearInterval(timerInterval);
+//             setStatus("🎉 Laimėjai! Level " + level, "lime");
+
+//             setTimeout(() => {
+//                 level++;
+//                 loadLevel(level);
+//                 resetGame();
+//             }, 2000);
+//         }
+
+//     }, 100); // 100ms = greitis
+// });
+
+
+
+setInterval(() => {
+
+    if (gameOver) return;
+
+    // --- judėjimas ---
+    if (keys["ArrowUp"] && canMove("ArrowUp")) {
+        targetY -= CELL_SIZE;
+        y_start -= CELL_SIZE;
+    }
+    if (keys["ArrowDown"] && canMove("ArrowDown")) {
+        targetY += CELL_SIZE;
+        y_start += CELL_SIZE;
+    }
+    if (keys["ArrowLeft"] && canMove("ArrowLeft")) {
+        targetX -= CELL_SIZE;
+        x_start -= CELL_SIZE;
+    }
+    if (keys["ArrowRight"] && canMove("ArrowRight")) {
+        targetX += CELL_SIZE;
+        x_start += CELL_SIZE;
+    }
+
+    // --- animacija ---
+    renderX += (targetX - renderX) / speedAnim;
+    renderY += (targetY - renderY) / speedAnim;
+
+    player.style.left = (renderX + (CELL_SIZE - 20)/2) + "px";
+    player.style.top  = (renderY + (CELL_SIZE - 20)/2) + "px";
+
+    // --- win check ---
+    if (checkFinish() && !gameOver) {
+        gameOver = true;
+        clearInterval(timerInterval);
+        setStatus("🎉 Laimėjai! Level " + level, "lime");
+
+        setTimeout(() => {
+            level++;
+            loadLevel(level);
+            resetGame();
+        }, 2000);
+    }
+
+}, 100);
+
+
+
+
+function checkBounds(nx, ny) {
+    let game = document.getElementById("game");
+
+    let gameWidth = game.clientWidth;
+    let gameHeight = game.clientHeight;
+
+    // žaidėjo dydis = 20px
+    if (nx < 0 || ny < 0 || nx + 20 > gameWidth || ny + 20 > gameHeight) {
+        return true;
     }
 
     return false;
 }
 
-function checkFinish() {
-    let p = player.getBoundingClientRect();
-    let f = finish.getBoundingClientRect();
+function canMove(direction) {
 
-    return !(p.right < f.left ||
-             p.left > f.right ||
-             p.bottom < f.top ||
-             p.top > f.bottom);
+    let gridX = Math.floor(x_start / CELL_SIZE);
+    let gridY = Math.floor(y_start / CELL_SIZE);
+
+    let cell = mazeGrid[gridY][gridX];
+
+    if (direction === "ArrowUp"    && !cell.walls.top) return true;
+    if (direction === "ArrowDown"  && !cell.walls.bottom) return true;
+    if (direction === "ArrowLeft"  && !cell.walls.left) return true;
+    if (direction === "ArrowRight" && !cell.walls.right) return true;
+
+    return false;
 }
+
+
+function checkFinish() {
+
+    let gridX = Math.floor(targetX / CELL_SIZE);
+    let gridY = Math.floor(targetY / CELL_SIZE);
+
+    return gridX === COLS - 1 && gridY === ROWS - 1;
+}
+
 </script>
 
 </body>
